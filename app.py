@@ -1,11 +1,13 @@
 import os
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, join_room, emit
+from flask_socketio import SocketIO, join_room, leave_room, emit
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-# Важно для работы WebRTC
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Хранилище пользователей: {sid: {'nickname': str, 'room': str}}
+users = {}
 
 @app.route('/')
 def index():
@@ -14,14 +16,31 @@ def index():
 @socketio.on('join')
 def on_join(data):
     room = data['room']
+    nickname = data.get('nickname', 'Аноним')
+    
     join_room(room)
-    # Отправляем остальным в комнате системный SID нового пользователя
+    users[request.sid] = {'nickname': nickname, 'room': room}
+    
+    # Отправляем обновленный список участников всем в комнате
+    room_users = [u['nickname'] for sid, u in users.items() if u['room'] == room]
+    emit('update-user-list', {'users': room_users, 'roomName': room}, room=room)
+    
+    # Сигнал для WebRTC
     emit('user-connected', {'sid': request.sid}, room=room, include_self=False)
+
+@socketio.on('disconnect')
+def on_disconnect():
+    if request.sid in users:
+        user_data = users[request.sid]
+        room = user_data['room']
+        del users[request.sid]
+        
+        # Обновляем список для оставшихся
+        room_users = [u['nickname'] for sid, u in users.items() if u['room'] == room]
+        emit('update-user-list', {'users': room_users, 'roomName': room}, room=room)
 
 @socketio.on('signal')
 def on_signal(data):
-    # Пересылаем сигнал конкретному пользователю по его SID
-    # data['to'] теперь содержит системный SID получателя
     emit('signal', {'sid': request.sid, 'signal': data['signal']}, room=data['to'])
 
 if __name__ == '__main__':
