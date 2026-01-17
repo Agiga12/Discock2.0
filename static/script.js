@@ -2,17 +2,16 @@ const socket = io();
 let localStream;
 const peers = {};
 
-// ТВОЙ НОВЫЙ СТОПУДОВЫЙ КОНФИГ С ЛИЧНЫМИ КЛЮЧАМИ
+// Тот самый конфиг, который работал, но с твоими ключами
 const iceConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         {
-            // Личные данные из твоего кабинета Metered
+            // Твои личные данные из Metered
             urls: [
                 'turn:global.metered.ca:80',
-                'turn:global.metered.ca:443',
-                'turn:global.metered.ca:443?transport=tcp'
+                'turn:global.metered.ca:443'
             ],
             username: '363054d6294d86ed2f279542',
             credential: '25oVFuUTlV+m/KcI'
@@ -64,7 +63,6 @@ function createPeerConnection(sid) {
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Следим за качеством связи
     pc.oniceconnectionstatechange = () => {
         console.log(`Связь с ${sid}: ${pc.iceConnectionState}`);
     };
@@ -79,7 +77,6 @@ function createPeerConnection(sid) {
             document.getElementById('remoteAudios').appendChild(audio);
         }
         audio.srcObject = event.streams[0];
-        // Принудительный запуск звука (фикс для мобилок и Safari)
         audio.play().catch(() => console.log("Нужен клик для звука"));
     };
 
