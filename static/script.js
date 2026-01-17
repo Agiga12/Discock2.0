@@ -2,44 +2,50 @@ const socket = io();
 let localStream;
 const peers = {};
 
+// СТОПУДОВЫЙ КОНФИГ: STUN + TURN
+const iceConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        // Публичный TURN сервер (Relay)
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
+    ]
+};
+
 async function joinRoom() {
     const room = document.getElementById('roomInput').value;
     if (!room) return;
 
     try {
-        // Запрашиваем микрофон ПЕРЕД подключением к комнате
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Микрофон получен");
+        console.log("Микрофон готов");
         
         socket.emit('join', { room: room });
-        document.getElementById('status').innerText = `Подключено к: ${room}`;
+        document.getElementById('status').innerText = `Комната: ${room}. Ждем друзей...`;
     } catch (err) {
-        console.error("Ошибка доступа к микрофону:", err);
-        alert("Не удалось получить доступ к микрофону!");
+        alert("Без микрофона чат не заработает!");
     }
 }
 
-// Когда нам говорят, что кто-то зашел
 socket.on('user-connected', async (data) => {
-    console.log("Новый пользователь подключился:", data.sid);
+    console.log("Новый участник:", data.sid);
     const pc = createPeerConnection(data.sid);
-    
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    
-    socket.emit('signal', {
-        to: data.sid,
-        signal: offer
-    });
+    socket.emit('signal', { to: data.sid, signal: offer });
 });
 
-// Получение сигнала (оффер, ответ или ICE-кандидат)
 socket.on('signal', async (data) => {
-    let pc = peers[data.sid];
-    
-    if (!pc) {
-        pc = createPeerConnection(data.sid);
-    }
+    let pc = peers[data.sid] || createPeerConnection(data.sid);
 
     if (data.signal.type === 'offer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
@@ -49,33 +55,33 @@ socket.on('signal', async (data) => {
     } else if (data.signal.type === 'answer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
     } else if (data.signal.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.signal));
+        pc.addIceCandidate(new RTCIceCandidate(data.signal)).catch(e => console.error(e));
     }
 });
 
 function createPeerConnection(sid) {
-    const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
+    const pc = new RTCPeerConnection(iceConfig);
     peers[sid] = pc;
 
-    // Добавляем дорожки нашего микрофона в соединение
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Обработка входящего звука
+    // Следим за качеством связи
+    pc.oniceconnectionstatechange = () => {
+        console.log(`Связь с ${sid}: ${pc.iceConnectionState}`);
+    };
+
     pc.ontrack = (event) => {
-        console.log("Получен аудиопоток от", sid);
         let audio = document.getElementById(`audio-${sid}`);
         if (!audio) {
             audio = document.createElement('audio');
             audio.id = `audio-${sid}`;
             audio.autoplay = true;
-            // Важно для некоторых мобильных браузеров
             audio.playsInline = true; 
             document.getElementById('remoteAudios').appendChild(audio);
         }
         audio.srcObject = event.streams[0];
+        // Принудительный запуск звука (фикс для мобилок)
+        audio.play().catch(() => console.log("Нужен клик для звука"));
     };
 
     pc.onicecandidate = (event) => {
