@@ -3,251 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discock 2.0 | Voice Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Discock 2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f111a;
-            --card-bg: #1a1d29;
-            --accent-color: #5865f2;
-            --accent-hover: #4752c4;
-            --text-main: #ffffff;
-            --text-dim: #949ba4;
-            --input-bg: #1e2124;
-            --success: #23a559;
-            --danger: #da373c;
-            --danger-hover: #a1282c;
+            --bg: #0f111a; --card: #1a1d29; --accent: #5865f2;
+            --text: #ffffff; --dim: #949ba4; --input: #1e2124; --danger: #da373c;
         }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow-x: hidden; }
+        .card { background: var(--card); padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+        .logo { font-size: 28px; font-weight: 700; margin-bottom: 20px; background: linear-gradient(90deg, #5865f2, #a371ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { font-size: 11px; color: var(--dim); text-transform: uppercase; font-weight: 700; margin-bottom: 5px; display: block; }
+        input { width: 100%; box-sizing: border-box; background: var(--input); border: 1px solid #000; border-radius: 8px; padding: 12px; color: #fff; outline: none; }
+        .btn { width: 100%; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 10px; font-size: 14px; }
+        .btn-join { background: var(--accent); color: #fff; }
+        .btn-screen { background: #43b581; color: #fff; }
+        .btn-leave { background: var(--danger); color: #fff; }
 
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .card {
-            background: var(--card-bg);
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
-        }
-
-        /* Форма входа */
-        .login-container {
-            max-width: 400px;
-            text-align: center;
-        }
-
-        /* Большое центральное окно комнаты */
-        .room-ui {
-            display: none; 
-            max-width: 550px; /* Фиксированная ширина для красоты */
-            animation: fadeIn 0.4s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .logo {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            letter-spacing: -1px;
-            background: linear-gradient(90deg, #5865f2, #a371ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .subtitle {
-            color: var(--text-dim);
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-
-        label {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-dim);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        input {
-            width: 100%;
-            box-sizing: border-box;
-            background: var(--input-bg);
-            border: 1px solid rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 12px 16px;
-            color: white;
-            font-size: 15px;
-            outline: none;
-            transition: border 0.2s;
-        }
-
-        input:focus { border-color: var(--accent-color); }
-
-        .btn {
-            width: 100%;
-            border: none;
-            padding: 14px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-primary { background-color: var(--accent-color); color: white; }
-        .btn-primary:hover { background-color: var(--accent-hover); }
-
-        .btn-danger { 
-            background-color: var(--danger); 
-            color: white; 
-            margin-top: 24px;
-        }
-        .btn-danger:hover { background-color: var(--danger-hover); }
-
-        /* СПИСОК УЧАСТНИКОВ (СТОЛБИК) */
-        .room-header {
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 20px;
-            margin-bottom: 24px;
-            text-align: center;
-        }
-
-        .room-name-display {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent-color);
-            margin: 0;
-        }
-
-        /* Контейнер списка теперь Flex Column */
-        .user-list-container {
-            max-height: 400px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column; /* СТРОГО В СТОЛБИК */
-            gap: 12px;
-            padding: 5px;
-        }
-
-        .user-card {
-            display: flex;
-            align-items: center;
-            padding: 10px 16px;
-            gap: 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.02);
-        }
-
-        /* КРУГЛАЯ АВАТАРКА ФИКСИРОВАННОГО РАЗМЕРА */
-        .avatar {
-            width: 48px;  /* Фиксированная ширина */
-            height: 48px; /* Фиксированная высота */
-            border-radius: 50%; /* Делаем круг */
-            object-fit: cover;  /* Чтобы фото не растягивалось */
-            border: 2px solid var(--accent-color);
-            background-color: var(--input-bg);
-            flex-shrink: 0; /* Чтобы круг не сплющивался */
-        }
-
-        .user-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-main);
-        }
-
+        /* Окно комнаты */
+        #roomUI { display: none; max-width: 700px; }
+        .user-list { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; text-align: left; }
+        .user-card { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px 15px; border-radius: 12px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); flex-shrink: 0; }
+        
+        /* Видео контейнер */
+        #videoGrid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
+        video { width: 100%; border-radius: 12px; background: #000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        
         #remoteAudios { display: none; }
-
-        /* Кастомный скроллбар */
-        .user-list-container::-webkit-scrollbar { width: 6px; }
-        .user-list-container::-webkit-scrollbar-thumb { background: var(--input-bg); border-radius: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="card login-container" id="loginForm">
+    <div class="card" id="loginForm">
         <div class="logo">Discock 2.0</div>
-        <div class="subtitle">Голосовой чат нового поколения</div>
-
-        <div class="input-group">
-            <label>Ваш никнейм</label>
-            <input id="nicknameInput" placeholder="Введите имя..." autocomplete="off">
-        </div>
-
-        <div class="input-group">
-            <label>Ссылка на аватарку</label>
-            <input id="avatarInput" placeholder="https://example.com/photo.jpg" autocomplete="off">
-        </div>
-
-        <div class="input-group">
-            <label>Название комнаты</label>
-            <input id="roomInput" placeholder="Напр: Gaming" autocomplete="off">
-        </div>
-
-        <button class="btn btn-primary" onclick="handleJoin()">Войти в чат</button>
+        <div class="input-group"><label>Никнейм</label><input id="nicknameInput" placeholder="Твоё имя..."></div>
+        <div class="input-group"><label>Ссылка на аватар</label><input id="avatarInput" placeholder="https://..."></div>
+        <div class="input-group"><label>Комната</label><input id="roomInput" placeholder="Название..."></div>
+        <button class="btn btn-join" onclick="handleJoin()">Войти в чат</button>
     </div>
 
-    <div class="card room-ui" id="roomUI">
-        <div class="room-header">
-            <p style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Вы находитесь в</p>
-            <h2 class="room-name-display" id="displayRoomName">---</h2>
-        </div>
+    <div class="card" id="roomUI">
+        <div class="logo" id="displayRoomName">Комната</div>
         
-        <div class="user-list-container" id="userList"></div>
+        <div id="videoGrid"></div>
 
-        <button class="btn btn-danger" onclick="handleLeave()">Покинуть комнату</button>
+        <div class="user-list" id="userList"></div>
+        
+        <button class="btn btn-screen" id="screenBtn" onclick="toggleScreenShare()">Транслировать экран</button>
+        <button class="btn btn-leave" onclick="handleLeave()">Выйти</button>
     </div>
 
     <div id="remoteAudios"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="/static/script.js"></script>
     <script>
         function handleJoin() {
-            const nick = document.getElementById('nicknameInput').value;
-            const room = document.getElementById('roomInput').value;
-            if (!nick || !room) return alert("Заполни имя и комнату!");
-
-            // Запуск логики из script.js
             joinRoom();
-
-            // Показываем интерфейс комнаты
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('roomUI').style.display = 'block';
-            document.getElementById('displayRoomName').innerText = room;
+            document.getElementById('displayRoomName').innerText = document.getElementById('roomInput').value;
         }
-
         function handleLeave() {
-            // Запуск выхода из script.js
             leaveRoom();
-
-            // Возвращаемся к логину (поля ввода не очищаются)
             document.getElementById('roomUI').style.display = 'none';
             document.getElementById('loginForm').style.display = 'block';
         }
     </script>
-    <script src="/static/script.js"></script>
 </body>
 </html>
