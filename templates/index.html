@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discock | Voice Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-color: #0f111a;
@@ -15,6 +15,7 @@
             --text-dim: #949ba4;
             --input-bg: #1e2124;
             --success: #23a559;
+            --danger: #da373c;
         }
 
         body {
@@ -30,7 +31,8 @@
             overflow: hidden;
         }
 
-        .container {
+        /* Контейнер входа */
+        .login-container {
             background: var(--card-bg);
             padding: 40px;
             border-radius: 24px;
@@ -39,6 +41,7 @@
             max-width: 400px;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
         }
 
         .logo {
@@ -71,7 +74,7 @@
             text-transform: uppercase;
         }
 
-        #roomInput {
+        input {
             width: 100%;
             box-sizing: border-box;
             background: var(--input-bg);
@@ -84,7 +87,7 @@
             transition: border 0.2s;
         }
 
-        #roomInput:focus {
+        input:focus {
             border-color: var(--accent-color);
         }
 
@@ -109,75 +112,157 @@
             transform: scale(0.98);
         }
 
-        #status {
-            margin-top: 24px;
-            font-size: 14px;
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        /* Окошко участников (Active Room UI) */
+        .room-ui {
+            display: none; /* Скрыто до входа */
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            padding: 20px;
+            animation: slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
         }
 
-        /* Анимация пульсирующей точки статуса */
-        .status-dot {
-            width: 8px;
-            height: 8px;
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .room-header {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .room-name-label {
+            font-size: 11px;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .room-name-display {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 4px 0 0 0;
+            color: var(--text-main);
+        }
+
+        .user-list-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            gap: 12px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
             background-color: var(--success);
             border-radius: 50%;
-            display: none;
-            box-shadow: 0 0 10px var(--success);
+            box-shadow: 0 0 8px var(--success);
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
             0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
+            50% { opacity: 0.6; transform: scale(1.1); }
             100% { opacity: 1; transform: scale(1); }
         }
 
+        .user-name {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
         #remoteAudios {
-            display: none; /* Скрыты, так как это просто аудио-теги */
+            display: none;
+        }
+
+        /* Адаптивность для мобилок */
+        @media (max-width: 480px) {
+            .room-ui {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="login-container" id="loginForm">
         <div class="logo">Discock 2.0</div>
-        <div class="subtitle">Голосовой чат нового поколения</div>
+        <div class="subtitle">Присоединяйтесь к общению</div>
 
         <div class="input-group">
-            <label for="roomInput">Комната</label>
-            <input id="roomInput" placeholder="Например: Gaming" autocomplete="off">
+            <label for="nicknameInput">Ваш никнейм</label>
+            <input id="nicknameInput" placeholder="Напр: Андрей" autocomplete="off">
         </div>
 
-        <button onclick="handleJoin()">Подключиться</button>
-
-        <div id="status">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Готов к подключению</span>
+        <div class="input-group">
+            <label for="roomInput">Название комнаты</label>
+            <input id="roomInput" placeholder="Напр: Gaming" autocomplete="off">
         </div>
+
+        <button onclick="handleJoin()">Войти в чат</button>
+    </div>
+
+    <div class="room-ui" id="roomUI">
+        <div class="room-header">
+            <p class="room-name-label">Активная комната</p>
+            <h2 class="room-name-display" id="displayRoomName">---</h2>
+        </div>
+        <div class="user-list-container" id="userList">
+            </div>
     </div>
 
     <div id="remoteAudios"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Маленькая обертка, чтобы обновить текст статуса красиво
+        // Функция-обертка для красивого перехода
         function handleJoin() {
-            const dot = document.getElementById('statusDot');
-            const text = document.getElementById('statusText');
-            
-            // Вызываем твою оригинальную функцию из script.js
+            const nickname = document.getElementById('nicknameInput').value;
+            const room = document.getElementById('roomInput').value;
+
+            if (!nickname || !room) {
+                alert("Пожалуйста, введите никнейм и название комнаты!");
+                return;
+            }
+
+            // Вызываем логику из твоего script.js
+            // Убедись, что в script.js функция joinRoom использует значения из полей
             joinRoom();
 
-            // Визуально обновляем статус
-            dot.style.display = 'inline-block';
-            text.style.color = '#23a559';
-            text.innerText = "Подключено к комнате: " + document.getElementById('roomInput').value;
+            // Скрываем вход и показываем интерфейс комнаты
+            document.getElementById('loginForm').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('roomUI').style.display = 'block';
+                document.getElementById('displayRoomName').innerText = room;
+            }, 300);
         }
+
+        // Слушаем событие обновления списка пользователей от сервера
+        // (Это событие должен отправлять сервер в app.py)
+        const socketInternal = io(); // Временный доступ для UI логики, если нужно
+        
+        // ВАЖНО: В твоем script.js должен быть обработчик socket.on('update-user-list', ...)
+        // который будет наполнять элемент с id="userList"
     </script>
+    
     <script src="/static/script.js"></script>
 </body>
 </html>
