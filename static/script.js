@@ -2,19 +2,11 @@ const socket = io();
 let localStream;
 const peers = {};
 
-// Твой проверенный конфиг с личными ключами Metered
+// Тот самый простой конфиг, который работал изначально
 const iceConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        {
-            urls: [
-                'turn:global.metered.ca:80',
-                'turn:global.metered.ca:443'
-            ],
-            username: '363054d6294d86ed2f279542',
-            credential: '25oVFuUTlV+m/KcI'
-        }
+        { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
@@ -31,12 +23,12 @@ async function joinRoom() {
     try {
         // Захват микрофона
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Микрофон готов");
+        console.log("Микрофон получен"); // Лог как на твоем первом скриншоте
         
-        // Отправляем данные на сервер (теперь с никнеймом и аватаркой)
+        // Вход в комнату
         socket.emit('join', { room: room, nickname: nickname, avatar: avatar });
         
-        // UI: Переключаем экраны
+        // Переключение интерфейса
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('roomUI').style.display = 'block';
         document.getElementById('displayRoomName').innerText = room;
@@ -47,14 +39,11 @@ async function joinRoom() {
     }
 }
 
-// ФУНКЦИЯ ВЫХОДА
+// ФУНКЦИЯ ВЫХОДА (возвращает к форме с сохранением данных)
 function leaveRoom() {
     const room = document.getElementById('roomInput').value;
-    
-    // Сообщаем серверу об уходе
     socket.emit('leave_room_custom', { room: room });
 
-    // Закрываем все WebRTC соединения
     for (let sid in peers) {
         if (peers[sid]) {
             peers[sid].close();
@@ -62,20 +51,18 @@ function leaveRoom() {
         }
     }
     
-    // Останавливаем микрофон
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }
 
-    // Возвращаемся к форме входа (поля останутся заполненными)
     document.getElementById('roomUI').style.display = 'none';
     document.getElementById('loginForm').style.display = 'block';
 }
 
-// ОБНОВЛЕНИЕ СПИСКА УЧАСТНИКОВ (с аватарками)
+// ОБНОВЛЕНИЕ СПИСКА (Круглые аватарки в столбик)
 socket.on('update-user-list', (data) => {
     const userList = document.getElementById('userList');
-    userList.innerHTML = ''; // Очищаем список
+    userList.innerHTML = ''; 
     
     data.users.forEach(user => {
         const div = document.createElement('div');
@@ -88,9 +75,9 @@ socket.on('update-user-list', (data) => {
     });
 });
 
-// ЛОГИКА WebRTC (Сигналинг)
+// СТАНДАРТНАЯ ЛОГИКА WebRTC
 socket.on('user-connected', async (data) => {
-    console.log("Новый участник:", data.sid);
+    console.log("Новый пользователь подключился:", data.sid);
     const pc = createPeerConnection(data.sid);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -118,11 +105,8 @@ function createPeerConnection(sid) {
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    pc.oniceconnectionstatechange = () => {
-        console.log(`Связь с ${sid}: ${pc.iceConnectionState}`);
-    };
-
     pc.ontrack = (event) => {
+        console.log("Получен аудиопоток от", sid);
         let audio = document.getElementById(`audio-${sid}`);
         if (!audio) {
             audio = document.createElement('audio');
@@ -132,7 +116,6 @@ function createPeerConnection(sid) {
             document.getElementById('remoteAudios').appendChild(audio);
         }
         audio.srcObject = event.streams[0];
-        audio.play().catch(() => console.log("Нужен клик для звука"));
     };
 
     pc.onicecandidate = (event) => {
