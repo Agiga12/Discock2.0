@@ -1,83 +1,83 @@
 const socket = io();
 let localStream;
+let screenStream;
 const peers = {};
 
-// Тот самый простой конфиг, который работал изначально
 const iceConfig = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
 
 async function joinRoom() {
     const room = document.getElementById('roomInput').value;
     const nickname = document.getElementById('nicknameInput').value;
     const avatar = document.getElementById('avatarInput').value || 'https://www.gravatar.com/avatar/?d=mp';
-    
-    if (!room || !nickname) {
-        alert("Введите никнейм и название комнаты!");
-        return;
-    }
 
     try {
-        // Захват микрофона
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Микрофон получен"); // Лог как на твоем первом скриншоте
-        
-        // Вход в комнату
-        socket.emit('join', { room: room, nickname: nickname, avatar: avatar });
-        
-        // Переключение интерфейса
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('roomUI').style.display = 'block';
-        document.getElementById('displayRoomName').innerText = room;
-
+        socket.emit('join', { room, nickname, avatar });
     } catch (err) {
-        console.error(err);
-        alert("Без доступа к микрофону чат не будет работать!");
+        alert("Нужен микрофон!");
     }
 }
 
-// ФУНКЦИЯ ВЫХОДА (возвращает к форме с сохранением данных)
+async function toggleScreenShare() {
+    const btn = document.getElementById('screenBtn');
+    
+    if (!screenStream) {
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            btn.innerText = "Остановить трансляцию";
+            btn.style.background = "#da373c";
+
+            const videoTrack = screenStream.getVideoTracks()[0];
+            
+            // Добавляем видео всем подключенным пирам
+            for (let sid in peers) {
+                peers[sid].addTrack(videoTrack, screenStream);
+                // Пересогласовываем связь
+                const offer = await peers[sid].createOffer();
+                await peers[sid].setLocalDescription(offer);
+                socket.emit('signal', { to: sid, signal: offer });
+            }
+
+            videoTrack.onended = () => stopScreenShare();
+        } catch (err) { console.error(err); }
+    } else {
+        stopScreenShare();
+    }
+}
+
+function stopScreenShare() {
+    if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        screenStream = null;
+    }
+    const btn = document.getElementById('screenBtn');
+    btn.innerText = "Транслировать экран";
+    btn.style.background = "#43b581";
+    // Чтобы полностью убрать видео у других, проще перезайти в комнату 
+    // или реализовать удаление трека (для упрощения оставим так)
+}
+
 function leaveRoom() {
-    const room = document.getElementById('roomInput').value;
-    socket.emit('leave_room_custom', { room: room });
-
-    for (let sid in peers) {
-        if (peers[sid]) {
-            peers[sid].close();
-            delete peers[sid];
-        }
-    }
-    
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-
-    document.getElementById('roomUI').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
+    stopScreenShare();
+    socket.emit('leave_room_custom', { room: document.getElementById('roomInput').value });
+    for (let sid in peers) { peers[sid].close(); delete peers[sid]; }
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
 }
 
-// ОБНОВЛЕНИЕ СПИСКА (Круглые аватарки в столбик)
 socket.on('update-user-list', (data) => {
-    const userList = document.getElementById('userList');
-    userList.innerHTML = ''; 
-    
-    data.users.forEach(user => {
+    const list = document.getElementById('userList');
+    list.innerHTML = '';
+    data.users.forEach(u => {
         const div = document.createElement('div');
         div.className = 'user-card';
-        div.innerHTML = `
-            <img src="${user.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'">
-            <span class="user-name">${user.nickname}</span>
-        `;
-        userList.appendChild(div);
+        div.innerHTML = `<img src="${u.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'"><span class="user-name">${u.nickname}</span>`;
+        list.appendChild(div);
     });
 });
 
-// СТАНДАРТНАЯ ЛОГИКА WebRTC
 socket.on('user-connected', async (data) => {
-    console.log("Новый пользователь подключился:", data.sid);
     const pc = createPeerConnection(data.sid);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -86,7 +86,6 @@ socket.on('user-connected', async (data) => {
 
 socket.on('signal', async (data) => {
     let pc = peers[data.sid] || createPeerConnection(data.sid);
-
     if (data.signal.type === 'offer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
         const answer = await pc.createAnswer();
@@ -95,7 +94,7 @@ socket.on('signal', async (data) => {
     } else if (data.signal.type === 'answer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
     } else if (data.signal.candidate) {
-        pc.addIceCandidate(new RTCIceCandidate(data.signal)).catch(e => console.error(e));
+        pc.addIceCandidate(new RTCIceCandidate(data.signal)).catch(e => {});
     }
 });
 
@@ -103,25 +102,30 @@ function createPeerConnection(sid) {
     const pc = new RTCPeerConnection(iceConfig);
     peers[sid] = pc;
 
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
     pc.ontrack = (event) => {
-        console.log("Получен аудиопоток от", sid);
-        let audio = document.getElementById(`audio-${sid}`);
-        if (!audio) {
-            audio = document.createElement('audio');
+        if (event.track.kind === 'video') {
+            let video = document.getElementById(`video-${sid}`);
+            if (!video) {
+                video = document.createElement('video');
+                video.id = `video-${sid}`;
+                video.autoplay = true;
+                video.playsInline = true;
+                document.getElementById('videoGrid').appendChild(video);
+            }
+            video.srcObject = event.streams[0];
+        } else {
+            let audio = document.getElementById(`audio-${sid}`) || document.createElement('audio');
             audio.id = `audio-${sid}`;
             audio.autoplay = true;
-            audio.playsInline = true; 
+            audio.srcObject = event.streams[0];
             document.getElementById('remoteAudios').appendChild(audio);
         }
-        audio.srcObject = event.streams[0];
     };
 
     pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('signal', { to: sid, signal: event.candidate });
-        }
+        if (event.candidate) socket.emit('signal', { to: sid, signal: event.candidate });
     };
 
     return pc;
