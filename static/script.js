@@ -2,13 +2,12 @@ const socket = io();
 let localStream;
 const peers = {};
 
-// Тот самый конфиг, который работал, но с твоими ключами
+// Твой проверенный конфиг с личными ключами Metered
 const iceConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         {
-            // Твои личные данные из Metered
             urls: [
                 'turn:global.metered.ca:80',
                 'turn:global.metered.ca:443'
@@ -21,19 +20,55 @@ const iceConfig = {
 
 async function joinRoom() {
     const room = document.getElementById('roomInput').value;
-    if (!room) return;
+    const nickname = document.getElementById('nicknameInput').value;
+    
+    if (!room || !nickname) {
+        alert("Введите никнейм и название комнаты!");
+        return;
+    }
 
     try {
+        // Захват микрофона
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("Микрофон готов");
         
-        socket.emit('join', { room: room });
-        document.getElementById('status').innerText = `Комната: ${room}. Ждем друзей...`;
+        // Отправляем данные на сервер (теперь с никнеймом)
+        socket.emit('join', { room: room, nickname: nickname });
+        
+        // UI: Переключаем экраны (плавный переход)
+        const loginForm = document.getElementById('loginForm');
+        const roomUI = document.getElementById('roomUI');
+        
+        loginForm.style.opacity = '0';
+        setTimeout(() => {
+            loginForm.style.display = 'none';
+            roomUI.style.display = 'block';
+            document.getElementById('displayRoomName').innerText = room;
+        }, 300);
+
     } catch (err) {
-        alert("Без микрофона чат не заработает!");
+        console.error(err);
+        alert("Без доступа к микрофону чат не будет работать!");
     }
 }
 
+// ОБНОВЛЕНИЕ СПИСКА УЧАСТНИКОВ
+socket.on('update-user-list', (data) => {
+    const userList = document.getElementById('userList');
+    userList.innerHTML = ''; // Очищаем старый список
+    
+    data.users.forEach(user => {
+        const item = document.createElement('div');
+        item.className = 'user-item';
+        item.innerHTML = `
+            <div class="status-indicator"></div>
+            <span class="user-name">${user}</span>
+        `;
+        userList.appendChild(item);
+    });
+});
+
+// ЛОГИКА WebRTC (Сигналинг)
 socket.on('user-connected', async (data) => {
     console.log("Новый участник:", data.sid);
     const pc = createPeerConnection(data.sid);
