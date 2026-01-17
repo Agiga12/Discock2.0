@@ -2,21 +2,20 @@ const socket = io();
 let localStream;
 const peers = {};
 
-// СТОПУДОВЫЙ КОНФИГ: STUN + TURN
+// ТВОЙ НОВЫЙ СТОПУДОВЫЙ КОНФИГ С ЛИЧНЫМИ КЛЮЧАМИ
 const iceConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // Публичный TURN сервер (Relay)
         {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
+            // Личные данные из твоего кабинета Metered
+            urls: [
+                'turn:global.metered.ca:80',
+                'turn:global.metered.ca:443',
+                'turn:global.metered.ca:443?transport=tcp'
+            ],
+            username: '363054d6294d86ed2f279542',
+            credential: '25oVFuUTlV+m/KcI'
         }
     ]
 };
@@ -80,7 +79,7 @@ function createPeerConnection(sid) {
             document.getElementById('remoteAudios').appendChild(audio);
         }
         audio.srcObject = event.streams[0];
-        // Принудительный запуск звука (фикс для мобилок)
+        // Принудительный запуск звука (фикс для мобилок и Safari)
         audio.play().catch(() => console.log("Нужен клик для звука"));
     };
 
