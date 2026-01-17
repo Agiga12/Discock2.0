@@ -11,7 +11,7 @@
             --text: #ffffff; --dim: #949ba4; --input: #1e2124; --danger: #da373c; --success: #43b581;
         }
         body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        .card { background: var(--card); padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; border: 1px solid rgba(255,255,255,0.05); z-index: 10; }
+        .card { background: var(--card); padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; border: 1px solid rgba(255,255,255,0.05); position: relative; }
         .logo { font-size: 24px; font-weight: 700; margin-bottom: 20px; background: linear-gradient(90deg, #5865f2, #a371ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .input-group { margin-bottom: 15px; text-align: left; }
         label { font-size: 11px; color: var(--dim); text-transform: uppercase; font-weight: 700; margin-bottom: 5px; display: block; }
@@ -21,23 +21,28 @@
         .btn-screen { background: var(--success); color: #fff; }
         .btn-leave { background: var(--danger); color: #fff; }
 
-        /* Список участников */
+        /* Участники */
         #roomUI { display: none; }
         .user-list { display: flex; flex-direction: column; gap: 8px; margin: 20px 0; }
-        .user-card { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 12px; }
+        .user-card { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 12px; cursor: context-menu; transition: background 0.2s; }
+        .user-card:hover { background: rgba(255,255,255,0.08); }
         .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); }
-        .watch-btn { margin-left: auto; background: none; border: 1px solid var(--success); color: var(--success); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
-        .watch-btn:hover { background: var(--success); color: #fff; }
+        .watch-btn { margin-left: auto; background: none; border: 1px solid var(--success); color: var(--success); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
 
-        /* Окно трансляции (Театр) */
+        /* Контекстное меню громкости */
+        #volumeMenu { 
+            display: none; position: fixed; background: #2f3136; border-radius: 8px; 
+            padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; width: 180px;
+        }
+        .volume-label { font-size: 12px; color: #fff; margin-bottom: 8px; display: block; font-weight: 600; }
+        #volumeSlider { width: 100%; cursor: pointer; accent-color: var(--accent); }
+        .volume-value { font-size: 10px; color: var(--dim); text-align: right; display: block; margin-top: 4px; }
+
+        /* Театр */
         #theater { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         .video-container { position: relative; width: 100%; max-width: 1000px; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: contain; }
-        .video-controls { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; }
-        .ctrl-btn { background: rgba(0,0,0,0.6); border: 1px solid #fff; color: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .close-theater { position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; }
-        
-        #remoteAudios { display: none; }
+        .close-theater { position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; color: #fff; }
     </style>
 </head>
 <body>
@@ -57,13 +62,16 @@
         <button class="btn btn-leave" onclick="handleLeave()">Выйти</button>
     </div>
 
+    <div id="volumeMenu">
+        <label class="volume-label">Громкость: <span id="volName">Пользователь</span></label>
+        <input type="range" id="volumeSlider" min="0" max="200" value="100">
+        <span class="volume-value" id="volVal">100%</span>
+    </div>
+
     <div id="theater">
         <span class="close-theater" onclick="closeTheater()">&times;</span>
         <div class="video-container">
             <video id="mainVideo" autoplay playsinline></video>
-            <div class="video-controls">
-                <button class="ctrl-btn" onclick="toggleFullScreen()">На весь экран</button>
-            </div>
         </div>
     </div>
 
@@ -84,11 +92,10 @@
             document.getElementById('loginForm').style.display = 'block';
             closeTheater();
         }
-        function toggleFullScreen() {
-            const v = document.getElementById('mainVideo');
-            if (v.requestFullscreen) v.requestFullscreen();
-            else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
-        }
+        // Закрытие меню громкости при клике в любом месте
+        window.addEventListener('click', () => {
+            document.getElementById('volumeMenu').style.display = 'none';
+        });
     </script>
 </body>
 </html>
