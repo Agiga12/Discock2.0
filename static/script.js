@@ -68,7 +68,7 @@ socket.on('update-user-list', (data) => {
     data.users.forEach(u => {
         const div = document.createElement('div');
         div.className = 'user-card';
-        let watchBtn = u.is_sharing && u.sid !== socket.id ? `<button class="watch-btn" onclick="watchStream('${u.sid}')">📺 Смотреть</button>` : '';
+        let watchBtn = u.is_sharing && u.sid !== socket.id ? `<button class="watch-btn" onclick="watchStream('${u.sid}')">Смотреть</button>` : '';
         div.innerHTML = `<img src="${u.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'"><span class="user-name">${u.nickname}</span> ${watchBtn}`;
         list.appendChild(div);
     });
