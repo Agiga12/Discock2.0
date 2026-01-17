@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discock | Voice Chat</title>
+    <title>Discock 2.0 | Voice Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -16,6 +16,7 @@
             --input-bg: #1e2124;
             --success: #23a559;
             --danger: #da373c;
+            --danger-hover: #a1282c;
         }
 
         body {
@@ -31,17 +32,33 @@
             overflow: hidden;
         }
 
-        /* Контейнер входа */
-        .login-container {
+        /* Общий стиль для карточек */
+        .card {
             background: var(--card-bg);
             padding: 40px;
             border-radius: 24px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             width: 100%;
-            max-width: 400px;
-            text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.3s ease;
+        }
+
+        /* Контейнер входа */
+        .login-container {
+            max-width: 400px;
+            text-align: center;
+        }
+
+        /* Окно комнаты (Центральное и большое) */
+        .room-ui {
+            display: none; 
+            max-width: 600px; /* Увеличили ширину */
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .logo {
@@ -87,128 +104,120 @@
             transition: border 0.2s;
         }
 
-        input:focus {
-            border-color: var(--accent-color);
-        }
+        input:focus { border-color: var(--accent-color); }
 
-        button {
+        .btn {
             width: 100%;
-            background-color: var(--accent-color);
-            color: white;
             border: none;
             padding: 14px;
             border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+            transition: all 0.2s;
         }
 
-        button:hover {
-            background-color: var(--accent-hover);
-        }
+        .btn-primary { background-color: var(--accent-color); color: white; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
 
-        button:active {
-            transform: scale(0.98);
+        .btn-danger { 
+            background-color: var(--danger); 
+            color: white; 
+            margin-top: 24px;
         }
+        .btn-danger:hover { background-color: var(--danger-hover); }
 
-        /* Окошко участников (Active Room UI) */
-        .room-ui {
-            display: none; /* Скрыто до входа */
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 280px;
-            background: var(--card-bg);
-            border-radius: 16px;
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-            padding: 20px;
-            animation: slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
+        /* Стили списка участников */
         .room-header {
             border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 12px;
-            margin-bottom: 16px;
-        }
-
-        .room-name-label {
-            font-size: 11px;
-            color: var(--accent-color);
-            text-transform: uppercase;
-            font-weight: 700;
-            margin: 0;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+            text-align: center;
         }
 
         .room-name-display {
-            font-size: 18px;
-            font-weight: 600;
-            margin: 4px 0 0 0;
-            color: var(--text-main);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin: 0;
         }
 
         .user-list-container {
             max-height: 400px;
             overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Список в две колонки для большого окна */
+            gap: 16px;
+            padding: 10px 0;
         }
 
         .user-item {
             display: flex;
             align-items: center;
-            padding: 8px 0;
+            padding: 12px;
             gap: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
         }
 
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            background-color: var(--success);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--success);
-            animation: pulse 2s infinite;
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%; /* Всегда круглая */
+            object-fit: cover;
+            border: 2px solid var(--accent-color);
+            background-color: var(--input-bg);
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.1); }
-            100% { opacity: 1; transform: scale(1); }
+        .user-info {
+            display: flex;
+            flex-direction: column;
         }
 
         .user-name {
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-main);
         }
 
-        #remoteAudios {
-            display: none;
+        .user-status {
+            font-size: 12px;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        /* Адаптивность для мобилок */
-        @media (max-width: 480px) {
-            .room-ui {
-                width: calc(100% - 40px);
-                right: 20px;
-                left: 20px;
-            }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--success);
+        }
+
+        #remoteAudios { display: none; }
+
+        @media (max-width: 650px) {
+            .user-list-container { grid-template-columns: 1fr; }
+            .room-ui { margin: 20px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="login-container" id="loginForm">
+    <div class="card login-container" id="loginForm">
         <div class="logo">Discock 2.0</div>
-        <div class="subtitle">Присоединяйтесь к общению</div>
+        <div class="subtitle">Голосовой чат нового поколения</div>
 
         <div class="input-group">
             <label for="nicknameInput">Ваш никнейм</label>
-            <input id="nicknameInput" placeholder="Напр: Андрей" autocomplete="off">
+            <input id="nicknameInput" placeholder="Введите имя..." autocomplete="off">
+        </div>
+
+        <div class="input-group">
+            <label for="avatarInput">Ссылка на аватарку</label>
+            <input id="avatarInput" placeholder="https://example.com/photo.jpg" autocomplete="off">
         </div>
 
         <div class="input-group">
@@ -216,23 +225,25 @@
             <input id="roomInput" placeholder="Напр: Gaming" autocomplete="off">
         </div>
 
-        <button onclick="handleJoin()">Войти в чат</button>
+        <button class="btn btn-primary" onclick="handleJoin()">Войти в чат</button>
     </div>
 
-    <div class="room-ui" id="roomUI">
+    <div class="card room-ui" id="roomUI">
         <div class="room-header">
-            <p class="room-name-label">Активная комната</p>
+            <p style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Вы находитесь в</p>
             <h2 class="room-name-display" id="displayRoomName">---</h2>
         </div>
+        
         <div class="user-list-container" id="userList">
             </div>
+
+        <button class="btn btn-danger" onclick="handleLeave()">Покинуть комнату</button>
     </div>
 
     <div id="remoteAudios"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Функция-обертка для красивого перехода
         function handleJoin() {
             const nickname = document.getElementById('nicknameInput').value;
             const room = document.getElementById('roomInput').value;
@@ -242,25 +253,23 @@
                 return;
             }
 
-            // Вызываем логику из твоего script.js
-            // Убедись, что в script.js функция joinRoom использует значения из полей
+            // Вызов основной логики WebRTC
             joinRoom();
 
-            // Скрываем вход и показываем интерфейс комнаты
-            document.getElementById('loginForm').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('roomUI').style.display = 'block';
-                document.getElementById('displayRoomName').innerText = room;
-            }, 300);
+            // Переключение интерфейса
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('roomUI').style.display = 'block';
+            document.getElementById('displayRoomName').innerText = room;
         }
 
-        // Слушаем событие обновления списка пользователей от сервера
-        // (Это событие должен отправлять сервер в app.py)
-        const socketInternal = io(); // Временный доступ для UI логики, если нужно
-        
-        // ВАЖНО: В твоем script.js должен быть обработчик socket.on('update-user-list', ...)
-        // который будет наполнять элемент с id="userList"
+        function handleLeave() {
+            // Вызов функции выхода из script.js
+            leaveRoom();
+
+            // Возврат к форме входа (поля ввода сохранят свои значения)
+            document.getElementById('roomUI').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        }
     </script>
     
     <script src="/static/script.js"></script>
