@@ -1,69 +1,65 @@
 const socket = io();
-let localStream;
-let screenStream;
+let localStream, screenStream;
 const peers = {};
+const remoteStreams = {}; // Храним видео-потоки по sid
 
-const iceConfig = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-};
+const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 async function joinRoom() {
     const room = document.getElementById('roomInput').value;
     const nickname = document.getElementById('nicknameInput').value;
     const avatar = document.getElementById('avatarInput').value || 'https://www.gravatar.com/avatar/?d=mp';
-
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         socket.emit('join', { room, nickname, avatar });
-    } catch (err) {
-        alert("Нужен микрофон!");
-    }
+    } catch (err) { alert("Ошибка микрофона"); }
 }
 
 async function toggleScreenShare() {
     const btn = document.getElementById('screenBtn');
-    
     if (!screenStream) {
         try {
             screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
             btn.innerText = "Остановить трансляцию";
             btn.style.background = "#da373c";
+            socket.emit('share-state', { isSharing: true });
 
             const videoTrack = screenStream.getVideoTracks()[0];
-            
-            // Добавляем видео всем подключенным пирам
             for (let sid in peers) {
                 peers[sid].addTrack(videoTrack, screenStream);
-                // Пересогласовываем связь
-                const offer = await peers[sid].createOffer();
-                await peers[sid].setLocalDescription(offer);
-                socket.emit('signal', { to: sid, signal: offer });
+                renegotiate(sid);
             }
-
-            videoTrack.onended = () => stopScreenShare();
-        } catch (err) { console.error(err); }
+            videoTrack.onended = () => toggleScreenShare();
+        } catch (e) { console.error(e); }
     } else {
-        stopScreenShare();
-    }
-}
-
-function stopScreenShare() {
-    if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
+        screenStream.getTracks().forEach(t => t.stop());
         screenStream = null;
+        btn.innerText = "Транслировать экран";
+        btn.style.background = "#43b581";
+        socket.emit('share-state', { isSharing: false });
     }
-    const btn = document.getElementById('screenBtn');
-    btn.innerText = "Транслировать экран";
-    btn.style.background = "#43b581";
-    // Чтобы полностью убрать видео у других, проще перезайти в комнату 
-    // или реализовать удаление трека (для упрощения оставим так)
 }
 
-function leaveRoom() {
-    stopScreenShare();
-    socket.emit('leave_room_custom', { room: document.getElementById('roomInput').value });
-    for (let sid in peers) { peers[sid].close(); delete peers[sid]; }
-    if (localStream) localStream.getTracks().forEach(t => t.stop());
+async function renegotiate(sid) {
+    const offer = await peers[sid].createOffer();
+    await peers[sid].setLocalDescription(offer);
+    socket.emit('signal', { to: sid, signal: offer });
+}
+
+function watchStream(sid) {
+    const theater = document.getElementById('theater');
+    const video = document.getElementById('mainVideo');
+    if (remoteStreams[sid]) {
+        theater.style.display = 'flex';
+        video.srcObject = remoteStreams[sid];
+    } else {
+        alert("Трансляция еще не прогрузилась, подождите секунду...");
+    }
+}
+
+function closeTheater() {
+    document.getElementById('theater').style.display = 'none';
+    document.getElementById('mainVideo').srcObject = null;
 }
 
 socket.on('update-user-list', (data) => {
@@ -72,13 +68,18 @@ socket.on('update-user-list', (data) => {
     data.users.forEach(u => {
         const div = document.createElement('div');
         div.className = 'user-card';
-        div.innerHTML = `<img src="${u.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'"><span class="user-name">${u.nickname}</span>`;
+        let watchBtn = u.is_sharing && u.sid !== socket.id ? `<button class="watch-btn" onclick="watchStream('${u.sid}')">📺 Смотреть</button>` : '';
+        div.innerHTML = `<img src="${u.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'"><span class="user-name">${u.nickname}</span> ${watchBtn}`;
         list.appendChild(div);
     });
 });
 
 socket.on('user-connected', async (data) => {
     const pc = createPeerConnection(data.sid);
+    // Если мы уже транслируем экран, добавляем его новому юзеру сразу
+    if (screenStream) {
+        screenStream.getVideoTracks().forEach(track => pc.addTrack(track, screenStream));
+    }
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socket.emit('signal', { to: data.sid, signal: offer });
@@ -101,32 +102,25 @@ socket.on('signal', async (data) => {
 function createPeerConnection(sid) {
     const pc = new RTCPeerConnection(iceConfig);
     peers[sid] = pc;
-
-    if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
     pc.ontrack = (event) => {
         if (event.track.kind === 'video') {
-            let video = document.getElementById(`video-${sid}`);
-            if (!video) {
-                video = document.createElement('video');
-                video.id = `video-${sid}`;
-                video.autoplay = true;
-                video.playsInline = true;
-                document.getElementById('videoGrid').appendChild(video);
-            }
-            video.srcObject = event.streams[0];
+            remoteStreams[sid] = event.streams[0];
         } else {
             let audio = document.getElementById(`audio-${sid}`) || document.createElement('audio');
             audio.id = `audio-${sid}`;
-            audio.autoplay = true;
-            audio.srcObject = event.streams[0];
+            audio.autoplay = true; audio.srcObject = event.streams[0];
             document.getElementById('remoteAudios').appendChild(audio);
         }
     };
-
-    pc.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('signal', { to: sid, signal: event.candidate });
-    };
-
+    pc.onicecandidate = (e) => { if (e.candidate) socket.emit('signal', { to: sid, signal: e.candidate }); };
     return pc;
+}
+
+function leaveRoom() {
+    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+    socket.emit('leave_room_custom', { room: document.getElementById('roomInput').value });
+    for (let s in peers) { peers[s].close(); delete peers[s]; }
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
 }
