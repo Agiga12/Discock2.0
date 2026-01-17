@@ -21,6 +21,7 @@ const iceConfig = {
 async function joinRoom() {
     const room = document.getElementById('roomInput').value;
     const nickname = document.getElementById('nicknameInput').value;
+    const avatar = document.getElementById('avatarInput').value || 'https://www.gravatar.com/avatar/?d=mp';
     
     if (!room || !nickname) {
         alert("Введите никнейм и название комнаты!");
@@ -32,19 +33,13 @@ async function joinRoom() {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("Микрофон готов");
         
-        // Отправляем данные на сервер (теперь с никнеймом)
-        socket.emit('join', { room: room, nickname: nickname });
+        // Отправляем данные на сервер (теперь с никнеймом и аватаркой)
+        socket.emit('join', { room: room, nickname: nickname, avatar: avatar });
         
-        // UI: Переключаем экраны (плавный переход)
-        const loginForm = document.getElementById('loginForm');
-        const roomUI = document.getElementById('roomUI');
-        
-        loginForm.style.opacity = '0';
-        setTimeout(() => {
-            loginForm.style.display = 'none';
-            roomUI.style.display = 'block';
-            document.getElementById('displayRoomName').innerText = room;
-        }, 300);
+        // UI: Переключаем экраны
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('roomUI').style.display = 'block';
+        document.getElementById('displayRoomName').innerText = room;
 
     } catch (err) {
         console.error(err);
@@ -52,19 +47,44 @@ async function joinRoom() {
     }
 }
 
-// ОБНОВЛЕНИЕ СПИСКА УЧАСТНИКОВ
+// ФУНКЦИЯ ВЫХОДА
+function leaveRoom() {
+    const room = document.getElementById('roomInput').value;
+    
+    // Сообщаем серверу об уходе
+    socket.emit('leave_room_custom', { room: room });
+
+    // Закрываем все WebRTC соединения
+    for (let sid in peers) {
+        if (peers[sid]) {
+            peers[sid].close();
+            delete peers[sid];
+        }
+    }
+    
+    // Останавливаем микрофон
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Возвращаемся к форме входа (поля останутся заполненными)
+    document.getElementById('roomUI').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+}
+
+// ОБНОВЛЕНИЕ СПИСКА УЧАСТНИКОВ (с аватарками)
 socket.on('update-user-list', (data) => {
     const userList = document.getElementById('userList');
-    userList.innerHTML = ''; // Очищаем старый список
+    userList.innerHTML = ''; // Очищаем список
     
     data.users.forEach(user => {
-        const item = document.createElement('div');
-        item.className = 'user-item';
-        item.innerHTML = `
-            <div class="status-indicator"></div>
-            <span class="user-name">${user}</span>
+        const div = document.createElement('div');
+        div.className = 'user-card';
+        div.innerHTML = `
+            <img src="${user.avatar}" class="avatar" onerror="this.src='https://www.gravatar.com/avatar/?d=mp'">
+            <span class="user-name">${user.nickname}</span>
         `;
-        userList.appendChild(item);
+        userList.appendChild(div);
     });
 });
 
